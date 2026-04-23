@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Courier New', monospace;
+    background: #0d1117;
+    color: #e6edf3;
+    min-height: 100vh;
+    padding: 40px 32px;
+  }
+  h1 { font-size: 13px; color: #8b949e; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 32px; }
+
+  .reg-row { display: flex; gap: 16px; margin-bottom: 28px; }
+  .reg-card {
+    flex: 1; background: #161b22; border: 1px solid #30363d;
+    border-radius: 10px; padding: 18px 24px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .reg-card.hi    { border-color: #58a6ff; background: #1c2f45; }
+  .reg-card.green { border-color: #3fb950; background: #162a1e; }
+  .reg-label { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: .08em; }
+  .reg-value { font-size: 36px; font-weight: bold; letter-spacing: .12em; color: #58a6ff; }
+  .reg-value.green { color: #3fb950; }
+
+  @keyframes pop { 0%{ transform:scale(1); } 40%{ transform:scale(1.12); } 100%{ transform:scale(1); } }
+  .popping { animation: pop .25s ease-out; }
+
+  /* ── Actions grid ── */
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 28px; }
+
+  .act-btn {
+    padding: 16px 16px; border-radius: 10px; border: 1px solid #30363d;
+    background: #161b22; color: #8b949e;
+    font-family: 'Courier New', monospace; font-size: 13px;
+    cursor: pointer; text-align: left; transition: all .12s;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .act-btn:active { transform: scale(.97); }
+  .act-btn .btn-name { font-size: 16px; font-weight: bold; color: inherit; }
+  .act-btn .btn-sub  { font-size: 10px; color: #444d56; letter-spacing: .05em; }
+
+  .act-btn.seq:hover  { border-color:#58a6ff; color:#58a6ff; background:#1c2f45; }
+  .act-btn.seq:hover .btn-sub { color:#58a6ff; opacity:.6; }
+
+  .act-btn.call:hover { border-color:#f0883e; color:#f0883e; background:#2a1a0a; }
+  .act-btn.call:hover .btn-sub { color:#f0883e; opacity:.6; }
+
+  .act-btn.ret:hover  { border-color:#f78166; color:#f78166; background:#2a1a1a; }
+  .act-btn.ret:hover .btn-sub { color:#f78166; opacity:.6; }
+  .act-btn.ret.disabled { opacity:.3; cursor:not-allowed; pointer-events:none; }
+
+  .act-btn.int:hover  { border-color:#d2a8ff; color:#d2a8ff; background:#1e1535; }
+  .act-btn.int:hover .btn-sub { color:#d2a8ff; opacity:.6; }
+
+  /* ── Jump row — full width with input ── */
+  .jump-row {
+    grid-column: 1 / -1;
+    display: flex; gap: 0; border-radius: 10px; overflow: hidden;
+    border: 1px solid #30363d; background: #161b22;
+    transition: border-color .12s;
+  }
+  .jump-row:focus-within { border-color: #3fb950; }
+  .jump-btn {
+    padding: 16px 20px; background: none; border: none;
+    font-family: 'Courier New', monospace; font-size: 13px;
+    color: #8b949e; cursor: pointer; text-align: left;
+    display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;
+    transition: color .12s;
+  }
+  .jump-row:focus-within .jump-btn { color: #3fb950; }
+  .jump-btn .btn-name { font-size: 16px; font-weight: bold; color: inherit; }
+  .jump-btn .btn-sub  { font-size: 10px; color: #444d56; letter-spacing: .05em; }
+  .jump-row:focus-within .jump-btn .btn-sub { color: #3fb950; opacity: .6; }
+  .jump-divider { width: 1px; background: #30363d; margin: 12px 0; }
+  .jump-input-wrap {
+    flex: 1; display: flex; align-items: center; gap: 8px; padding: 0 16px;
+  }
+  .jump-prefix { font-size: 13px; color: #444d56; }
+  .jump-row:focus-within .jump-prefix { color: #3fb950; }
+  .jump-input {
+    background: none; border: none; outline: none;
+    font-family: 'Courier New', monospace; font-size: 20px; font-weight: bold;
+    color: #3fb950; width: 80px; letter-spacing: .1em; text-transform: uppercase;
+  }
+  .jump-input::placeholder { color: #30363d; }
+  .jump-go {
+    padding: 7px 14px; border-radius: 6px; border: 1px solid #3fb950;
+    background: #162a1e; color: #3fb950; font-family: 'Courier New', monospace;
+    font-size: 12px; cursor: pointer; transition: all .12s; flex-shrink: 0;
+  }
+  .jump-go:hover { background: #1e3a24; }
+  .jump-go:active { transform: scale(.97); }
+  .jump-err { font-size: 11px; color: #f78166; padding-right: 8px; flex-shrink: 0; }
+
+  /* ── Stack ── */
+  .stack-label { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; }
+  .stack-box {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+    padding: 16px 20px; margin-bottom: 28px; min-height: 72px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .stack-empty { font-size: 12px; color: #30363d; margin: auto; align-self: center; }
+  .stack-frame {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #0d1117; border: 1px solid #21262d; border-radius: 6px;
+    padding: 8px 14px; font-size: 12px;
+  }
+  .stack-frame.top { border-color: #f0883e; background: #2a1a0a; }
+  .stack-frame.int-frame { border-color: #d2a8ff; background: #1e1535; }
+  .sf-sp   { color: #444d56; font-size: 11px; }
+  .sf-addr { color: #f0883e; font-weight: bold; }
+  .sf-addr.purple { color: #d2a8ff; }
+  .sf-tag  { color: #444d56; font-size: 11px; }
+  @keyframes slideIn { from{ opacity:0; transform:translateY(-8px); } to{ opacity:1; transform:translateY(0); } }
+  .stack-frame { animation: slideIn .2s ease-out; }
+
+  /* ── Decode panel ── */
+  .decode {
+    background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+    padding: 20px 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-size: 10px; color: #8b949e; text-transform: uppercase; letter-spacing: .08em; }
+  .field-value { font-size: 22px; font-weight: bold; }
+  .structure {
+    grid-column: 1 / -1; background: #0d1117; border: 1px solid #21262d;
+    border-radius: 6px; padding: 10px 16px; font-size: 12px; color: #8b949e;
+    line-height: 1.7; font-family: sans-serif;
+  }
+  .structure strong { color: #e6edf3; }
+
+  .badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 12px; font-family: 'Courier New', monospace; }
+  .b-seq  { background:#1c2f45; color:#58a6ff; }
+  .b-jmp  { background:#162a1e; color:#3fb950; }
+  .b-call { background:#2a1a0a; color:#f0883e; }
+  .b-ret  { background:#2a1a1a; color:#f78166; }
+  .b-int  { background:#1e1535; color:#d2a8ff; }
+
+  .reset-row { text-align: right; margin-bottom: 10px; }
+  .reset-btn { background:none; border:none; color:#444d56; font-size:11px; font-family:'Courier New',monospace; cursor:pointer; }
+  .reset-btn:hover { color:#8b949e; }
+</style>
+</head>
+<body>
+<h2 class="sr-only" style="position:absolute;left:-9999px">Address Sequencing in 8085 Simulator</h2>
+<h1>Address Sequencing — 8085</h1>
+
+<!-- Registers -->
+<div class="reg-row">
+  <div class="reg-card hi">
+    <span class="reg-label">Program Counter (PC)</span>
+    <span class="reg-value" id="disp-pc">2000H</span>
+  </div>
+  <div class="reg-card green">
+    <span class="reg-label">Stack Pointer (SP)</span>
+    <span class="reg-value green" id="disp-sp">3FFFH</span>
+  </div>
+</div>
+
+<!-- Buttons -->
+<div class="actions">
+  <button class="act-btn seq" onclick="doSeq()">
+    <span class="btn-name">Sequential</span>
+    <span class="btn-sub">PC ← PC + 1</span>
+  </button>
+
+  <!-- Jump row — full width -->
+  <div class="jump-row" style="grid-column:1/-1">
+    <button class="jump-btn" onclick="doJmp()">
+      <span class="btn-name">Jump</span>
+      <span class="btn-sub">PC ← address</span>
+    </button>
+    <div class="jump-divider"></div>
+    <div class="jump-input-wrap">
+      <span class="jump-prefix">0x</span>
+      <input class="jump-input" id="jump-addr" maxlength="4" placeholder="20FF"
+        onkeydown="if(event.key==='Enter') doJmp()"
+        oninput="document.getElementById('jump-err').textContent=''">
+      <span class="jump-err" id="jump-err"></span>
+    </div>
+    <button class="jump-go" onclick="doJmp()">JMP ›</button>
+  </div>
+
+  <button class="act-btn call" onclick="doCall()">
+    <span class="btn-name">CALL</span>
+    <span class="btn-sub">PC → Stack, PC ← subroutine</span>
+  </button>
+
+  <button class="act-btn ret disabled" id="btn-ret" onclick="doRet()">
+    <span class="btn-name">RET</span>
+    <span class="btn-sub">PC ← Stack (pop)</span>
+  </button>
+
+  <button class="act-btn int" onclick="doInt()" style="grid-column:1/-1">
+    <span class="btn-name">Interrupt (RST 7)</span>
+    <span class="btn-sub">Hardware signal — PC → Stack, PC ← 0038H</span>
+  </button>
+</div>
+
+<!-- Stack -->
+<div class="stack-label">Stack Memory</div>
+<div class="stack-box" id="stack-box">
+  <span class="stack-empty">Stack is empty</span>
+</div>
+
+<!-- Decode -->
+<div class="reset-row"><button class="reset-btn" onclick="doReset()">↺ Reset</button></div>
+<div class="decode">
+  <div class="field">
+    <span class="field-label">Last Action</span>
+    <span class="field-value" id="d-action" style="color:#58a6ff">—</span>
+  </div>
+  <div class="field">
+    <span class="field-label">Type</span>
+    <span class="field-value" id="d-type"><span class="badge b-seq">—</span></span>
+  </div>
+  <div class="structure" id="d-explain">
+    Press any button above to interact with the <strong>Program Counter</strong>. In the 8085, every instruction fetch starts with the PC placing an address on the address bus.
+  </div>
+</div>
+
+<script>
+const SP_BASE = 0x3FFF;
+let pc = 0x2000;
+let stack = []; // {addr, isInt}
+let callBase = 0x3000;
+
+function toHex(n) { return n.toString(16).toUpperCase().padStart(4,'0') + 'H'; }
+
+function animateReg(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('popping');
+  void el.offsetWidth;
+  el.classList.add('popping');
+}
+
+function updateRegs() {
+  document.getElementById('disp-pc').textContent = toHex(pc);
+  document.getElementById('disp-sp').textContent = toHex(SP_BASE - stack.length * 2);
+  animateReg('disp-pc');
+  animateReg('disp-sp');
+}
+
+function updateStack() {
+  const box = document.getElementById('stack-box');
+  if (stack.length === 0) {
+    box.innerHTML = '<span class="stack-empty">Stack is empty</span>';
+  } else {
+    box.innerHTML = [...stack].reverse().map((frame, i) => {
+      const isTop = i === 0;
+      const spOffset = i * 2;
+      const isInt = frame.isInt;
+      return `<div class="stack-frame ${isTop ? (isInt ? 'int-frame' : 'top') : ''}">
+        <span class="sf-sp">${isTop ? '← SP' : 'SP+' + spOffset}</span>
+        <span class="sf-addr ${isInt ? 'purple' : ''}">${toHex(frame.addr)}</span>
+        <span class="sf-tag">${isInt ? 'ISR return addr' : 'return address'}</span>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('btn-ret').classList.toggle('disabled', stack.length === 0);
+}
+
+function setExplain(action, actionColor, badgeClass, badgeText, html) {
+  document.getElementById('d-action').textContent = action;
+  document.getElementById('d-action').style.color = actionColor;
+  document.getElementById('d-type').innerHTML = `<span class="badge ${badgeClass}">${badgeText}</span>`;
+  document.getElementById('d-explain').innerHTML = html;
+}
+
+function doSeq() {
+  const prev = toHex(pc);
+  pc++;
+  updateRegs(); updateStack();
+  setExplain('Sequential', '#58a6ff', 'b-seq', 'Sequential',
+    `PC incremented from <strong>${prev}</strong> to <strong>${toHex(pc)}</strong>. Normal execution — the CPU fetches the next instruction in memory order. No branching, no stack change.`);
+}
+
+function doJmp() {
+  const raw = document.getElementById('jump-addr').value.trim().toUpperCase();
+  if (raw === '') {
+    document.getElementById('jump-err').textContent = 'enter address';
+    return;
+  }
+  const val = parseInt(raw, 16);
+  if (isNaN(val) || val < 0 || val > 0xFFFF) {
+    document.getElementById('jump-err').textContent = 'invalid';
+    return;
+  }
+  document.getElementById('jump-err').textContent = '';
+  const prev = toHex(pc);
+  pc = val;
+  updateRegs(); updateStack();
+  setExplain('JMP', '#3fb950', 'b-jmp', 'Branching',
+    `PC was <strong>${prev}</strong>. JMP loaded <strong>${toHex(pc)}</strong> directly into the PC — skipping everything in between. The stack is untouched; there is no way back unless another JMP is used.`);
+}
+
+function doCall() {
+  const retAddr = pc + 1;
+  stack.push({ addr: retAddr, isInt: false });
+  const prev = toHex(pc);
+  pc = callBase + (stack.length - 1) * 0x10;
+  callBase = pc;
+  updateRegs(); updateStack();
+  setExplain('CALL', '#f0883e', 'b-call', 'Subroutine',
+    `<strong>CALL</strong> — return address <strong>${toHex(retAddr)}</strong> pushed onto the stack. PC jumped to subroutine at <strong>${toHex(pc)}</strong>. SP decremented by 2. Use <strong>RET</strong> to come back.`);
+}
+
+function doRet() {
+  if (stack.length === 0) return;
+  const frame = stack.pop();
+  const prev = toHex(pc);
+  pc = frame.addr;
+  callBase = 0x3000;
+  updateRegs(); updateStack();
+  setExplain('RET', '#f78166', 'b-ret', 'Subroutine',
+    `<strong>RET</strong> — return address <strong>${toHex(pc)}</strong> popped from the stack. PC restored. SP incremented by 2. Execution resumes exactly where the ${frame.isInt ? 'interrupt' : 'CALL'} was triggered.`);
+}
+
+function doInt() {
+  const retAddr = pc;
+  stack.push({ addr: retAddr, isInt: true });
+  const prev = toHex(pc);
+  pc = 0x0038;
+  updateRegs(); updateStack();
+  setExplain('Interrupt', '#d2a8ff', 'b-int', 'Interrupt',
+    `Hardware signal received. PC <strong>${prev}</strong> saved to stack automatically — the CPU did not execute a CALL. PC jumped to interrupt vector <strong>0038H</strong> (RST 7 service routine). Use <strong>RET</strong> to restore the main program.`);
+}
+
+function doReset() {
+  pc = 0x2000; stack = []; callBase = 0x3000;
+  document.getElementById('jump-addr').value = '';
+  document.getElementById('jump-err').textContent = '';
+  updateRegs(); updateStack();
+  document.getElementById('d-action').textContent = '—';
+  document.getElementById('d-action').style.color = '#58a6ff';
+  document.getElementById('d-type').innerHTML = '<span class="badge b-seq">—</span>';
+  document.getElementById('d-explain').innerHTML = 'Press any button above to interact with the <strong>Program Counter</strong>. In the 8085, every instruction fetch starts with the PC placing an address on the address bus.';
+}
+
+updateStack();
+</script>
+</body>
+</html>
